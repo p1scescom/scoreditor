@@ -1,8 +1,10 @@
 (defproject scoreditor "1.0.3"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :description "Score editor for Pastell"
+  :url "https://github.com/p1scescom/scoreditor"
+  :license {:name "MIT License"
+            :url "https://opensource.org/licenses/MIT"
+            :year 2017
+            :key "mit"}
   :profiles {:uberjar {:aot :all}}
   :main scoreditor.core
   :java-source-paths ["java"]
