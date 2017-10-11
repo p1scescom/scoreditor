@@ -38,6 +38,32 @@ public class FPSData {
     public void setF(int n) {f.set(n);}
     public void setG(int n) {g.set(n);}
 
+    public void setNum (int index,int n) {
+        switch (index) {
+        case 0:
+            setA(n);
+            break;
+        case 1:
+            setB(n);
+            break;
+        case 2:
+            setC(n);
+            break;
+        case 3:
+            setD(n);
+            break;
+        case 4:
+            setE(n);
+            break;
+        case 5:
+            setF(n);
+            break;
+        case 6:
+            setG(n);
+            break;
+        }
+    }
+
     public int  getFlame() {
         return flame.get();
     }
@@ -49,6 +75,32 @@ public class FPSData {
     public void getE() {e.get();}
     public void getF() {f.get();}
     public void getG() {g.get();}
+
+    public void getNum (int index) {
+        switch (index) {
+        case 0:
+            getA();
+            break;
+        case 1:
+            getB();
+            break;
+        case 2:
+            getC();
+            break;
+        case 3:
+            getD();
+            break;
+        case 4:
+            getE();
+            break;
+        case 5:
+            getF();
+            break;
+        case 6:
+            getG();
+            break;
+        }
+    }
 
     public SimpleIntegerProperty[] getNotes() {
         SimpleIntegerProperty notes[] = {a,b,c,d,e,f,g};
@@ -67,6 +119,6 @@ public class FPSData {
 
     public Color getColor() {
         return color[flame.get()];
-    }
 
+    }
 }
