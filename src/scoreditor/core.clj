@@ -7,5 +7,5 @@
 (defn -main [& args]
   (let [stage (app/start-fx)]
     (doto stage
-      (.setTitle "Epro2016 ScorEditor ")))
+      (.setTitle "Epro2017 ScorEditor")))
   #_(println "Finish"))

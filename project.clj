@@ -1,4 +1,4 @@
-(defproject scoreditor "1.0.3"
+(defproject scoreditor "2.0.0"
   :description "Score editor for Pastell"
   :url "https://github.com/p1scescom/scoreditor"
   :license {:name "MIT License"

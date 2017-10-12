@@ -64,42 +64,36 @@ public class FPSData {
         }
     }
 
-    public int  getFlame() {
+    public int getFlame() {
         return flame.get();
     }
 
-    public void getA() {a.get();}
-    public void getB() {b.get();}
-    public void getC() {c.get();}
-    public void getD() {d.get();}
-    public void getE() {e.get();}
-    public void getF() {f.get();}
-    public void getG() {g.get();}
+    public int getA() {return a.get();}
+    public int getB() {return b.get();}
+    public int getC() {return c.get();}
+    public int getD() {return d.get();}
+    public int getE() {return e.get();}
+    public int getF() {return f.get();}
+    public int getG() {return g.get();}
 
-    public void getNum (int index) {
+    public int getNum (int index) {
         switch (index) {
         case 0:
-            getA();
-            break;
+            return getA();
         case 1:
-            getB();
-            break;
+            return getB();
         case 2:
-            getC();
-            break;
+            return getC();
         case 3:
-            getD();
-            break;
+            return getD();
         case 4:
-            getE();
-            break;
+            return getE();
         case 5:
-            getF();
-            break;
+            return getF();
         case 6:
-            getG();
-            break;
+            return getG();
         }
+        return 0;
     }
 
     public SimpleIntegerProperty[] getNotes() {
@@ -116,6 +110,26 @@ public class FPSData {
     public SimpleIntegerProperty eProperty() {return e;}
     public SimpleIntegerProperty fProperty() {return f;}
     public SimpleIntegerProperty gProperty() {return g;}
+
+    public SimpleIntegerProperty proNum (int index) {
+        switch (index) {
+        case 0:
+            return a;
+        case 1:
+            return b;
+        case 2:
+            return c;
+        case 3:
+            return d;
+        case 4:
+            return e;
+        case 5:
+            return f;
+        case 6:
+            return g;
+        }
+        return new SimpleIntegerProperty(0);
+    }
 
     public Color getColor() {
         return color[flame.get()];

@@ -34,6 +34,7 @@
                                   TableView$TableViewFocusModel
                                   TableView$TableViewSelectionModel
                                   TableColumn
+                                  TableColumn$CellDataFeatures
                                   TextInputDialog
                                   SelectionMode
                                   Slider
@@ -112,6 +113,8 @@
 
 (def num-of-buttons 7)
 
+(def score-level (atom nil))
+
 (def score-rows (take num-of-buttons (clostr/split "abcdefghijklmnopqrstuvwxyz" #"")))
 
 (defn play-se [b n a]
@@ -134,7 +137,6 @@
 (defmacro save-notes []
   (let [gets (map #(symbol (str ".get" (clostr/upper-case %))) score-rows)
         return (cons 'do (map (fn [one-get alpha]
-                                (println (list alpha))
                                 `(spit (File. @editing-score ~alpha)
                                        (str (apply str (map #(~one-get %) `score-observ)) \4)))
                               gets score-rows))]
@@ -144,7 +146,7 @@
 (defmacro makeFPS []
   (let [alphas (cons 'flame (map #(symbol %) score-rows))
         ls (cons 'FPSData. alphas)
-        return `(fn ~(vector (vec alphas)) ~(cons println alphas) ~ls)]
+        return `(fn ~(vec alphas) ~ls)]
     (println return)
     return))
 
@@ -153,6 +155,7 @@
   (let [root        (AnchorPane.)
         controlers  (HBox.)
         score-table (TableView.)
+        _           (.setColumnResizePolicy score-table TableView/CONSTRAINED_RESIZE_POLICY)
 
         preview-pane      (Pane.)
         preview-canvas    (ResizeCanvas.)
@@ -186,21 +189,12 @@
                          (dorun (map (fn [b n a] (play-se b n a))
                                      (if (>= 1 now-t) (list 0 0 0 0)
                                          (let [ob (.get score-observ (- now-t 2))]
-                                           (dorun (map #(.getNum ob %) (range num-of-buttons)))
-                                           #_(get-rows ob)
-                                           #_(list (.getA ob) (.getB ob) (.getC ob) (.getD ob))))
+                                           (doall (map #(.getNum ob %) (range num-of-buttons)))))
                                      (if (>= 0 now-t) (list 0 0 0 0)
                                          (let [ob (.get score-observ (- now-t 1))]
-                                           (dorun (map #(.getNum ob %) (range num-of-buttons)))
-                                           #_(map #(eval (list (symbol ".get" %) ob)) (map clostr/upper-case score-rows))
-                                           #_(list (.getA ob) (.getB ob) (.getC ob) (.getD ob))))
-                                        ;(if (< (- (media-fps) 1) now-t) (list 0 0 0 0)
+                                           (doall (map #(.getNum ob %) (range num-of-buttons)))))
                                      (let [ob (.get score-observ now-t )]
-                                       (dorun (map #(.getNum ob %) (range num-of-buttons)))
-                                       #_(map #(eval (list (symbol ".get" %) ob)) (map clostr/upper-case score-rows))
-                                       #_(list (.getA ob) (.getB ob) (.getC ob) (.getD ob)));)
-                                     ))))
-                     )))
+                                       (doall (map #(.getNum ob %) (range num-of-buttons)))))))))))
                (Thread/sleep 1)))
 
         scene (Scene. root 1310 514)]
@@ -210,18 +204,17 @@
     (check-save []
       (when-not @score-changed
         (let [blist (make-array ButtonType 2)]
-        (aset blist 0 ButtonType/YES)
-        (aset blist 1 ButtonType/NO)
-        (let [al (Alert. Alert$AlertType/NONE "" blist)]
-          (doto al
-            (.setTitle "確認")
-            (-> .getDialogPane (.setContentText "保存してスコアを変更しますか？")))
-          (let [kai (.toString (.getButtonData (-> al .showAndWait (.orElse ButtonType/CANCEL))))]
-            (case kai
-              "YES"    (do (score-save))
-              "NO"     ()
-              "CANCEL" (println "ええんかい！")
-              ))))))
+          (aset blist 0 ButtonType/YES)
+          (aset blist 1 ButtonType/NO)
+          (let [al (Alert. Alert$AlertType/NONE "" blist)]
+            (doto al
+              (.setTitle "確認")
+              (-> .getDialogPane (.setContentText "保存してスコアを変更しますか？")))
+            (let [kai (.toString (.getButtonData (-> al .showAndWait (.orElse ButtonType/CANCEL))))]
+              (case kai
+                "YES"    (do (score-save))
+                "NO"     ()
+                "CANCEL" (println "ええんかい！")))))))
 
     (shutdown [com]
       (if-not @score-changed (do (shutdown-agents) (future-cancel se) (Platform/exit))
@@ -348,12 +341,10 @@
             (spit (File. @editing-score "b") score-b)
             (spit (File. @editing-score "c") score-c)
             (spit (File. @editing-score "d") score-d))
-          #_(apply map #(spit (File. @editing-score %) %2) [score-rows (let [an (get-rows score-rows score-observ)]
-                                                                       (map #((first % ) )))])
+
           (dorun (map (fn [alpha num] (spit (File. @editing-score alpha)
-                                            (str (apply str (map #(.get % num) score-observ)) \4)))
+                                            (str (apply str (map #(.getNum % num) score-observ)) \4)))
                       score-rows (range num-of-buttons)))
-          (save-notes)
           (reset! score-changed false))))
 
     (score-no-set []
@@ -370,6 +361,8 @@
     (menubar-set []
       (let [directoryChooser           (DirectoryChooser.)
             fileChooser                (FileChooser.)
+            levelDialog                (TextInputDialog. "5")
+            _                          (.setTitle levelDialog "How level is this score ?")
             menu-directory             (Menu. "File")
             menu-item-new-directory    (MenuItem. "New Project")
             menu-item-choice-directory (MenuItem. "Choice Project")
@@ -398,13 +391,14 @@
                                 (let [inf (.showOpenDialog fileChooser stage)]
                                   (if (not (nil? inf))
                                     (let [ouf         (io/file (file-uri @projectDirectory) (.getName inf))
-                                          config-file (File. @projectDirectory "config.txt")
-                                          ]
+                                          config-file (File. @projectDirectory "config.txt")]
                                       (io/copy inf ouf)
                                       (spit config-file (str (.getName @projectDirectory) "\n"))
-                                      (let [music-str (.getName inf)]
+                                      (let [music-str (.getName inf)
+                                            level (-> levelDialog .showAndWait (.orElse "5"))]
                                         (spit config-file (str (-> music-str (.substring 0 (-> music-str (.lastIndexOf ".")))) "\n") :append true)
-                                        (spit config-file music-str :append true))
+                                        (spit config-file (str music-str "\n") :append true)
+                                        (spit config-file level :append true))
                                       (when (make-project)
                                         (.setDisable menu-item-new-score false)
                                         (.setDisable menu-item-change-score-level false)
@@ -437,8 +431,7 @@
           (.setOnAction (proxy [EventHandler] []
                           (handle [e]
                             (let [score-name-dialog (TextInputDialog. )
-                                  score-name        (-> score-name-dialog .showAndWait (.orElse ""))
-                                  ]
+                                  score-name        (-> score-name-dialog .showAndWait (.orElse ""))]
                               (println score-name)
                               (when (not= "" score-name)
                                 (let [^File score-file (File. @projectDirectory score-name)]
@@ -446,8 +439,7 @@
                                   (let [all-zero (apply str (repeat (media-fps) \0))]
                                     (dorun (map #(spit % all-zero) (map #(File. score-file %) score-rows)))
                                     (score-set score-file)
-                                    (input-score-set)
-                              ))))))))
+                                    (input-score-set)))))))))
 
         #_(doto menu-item-easy-score
           (.setOnAction (proxy [EventHandler] []
@@ -513,33 +505,30 @@
               ;c-list      (map #(Character/getNumericValue %) (slurp (File. @editing-score "c")))
               ;d-list      (map #(Character/getNumericValue %) (slurp (File. @editing-score "d")))
               score-lists  (let [tmp (doall (map (fn [alpha]
-                                                   (map #(Character/getNumericValue %)
-                                                        (slurp (File. @editing-score alpha))))
+                                                   (doall (map #(Character/getNumericValue %)
+                                                               (slurp (File. @editing-score alpha)))))
                                                  score-rows))]
-                             (cons (range 1 (count (first tmp))) tmp))
-              #_(vec (cons (iterate inc 1)
-                                     (loop [score-rem (reverse score-rows)
-                                            lists     ()]
-                                       (if (empty? score-rem) lists
-                                           (let [adding-list (map #(Character/getNumericValue %) (slurp (File. @editing-score (first score-rem))))]
-                                             (recur (rest score-rem) (cons adding-list lists)))))))]
+                             (cons (range 1 (inc (count (first tmp)))) tmp))]
+
           (dorun
-            (map #(.add score-observ %) (map (makeFPS) (apply map list score-lists))))
-          #_(dorun
-           (map #(.add score-observ %) (map #(eval (cons 'FPSData. %)) (apply map list score-lists))))
+           (map #(.add score-observ %) (apply map (makeFPS) score-lists)))
           #_(dorun
             (map #(.add score-observ %) (map (fn [f a b c d] (FPSData. f a b c d)) f-num a-list b-list c-list d-list))))
-            (reset! before-frame -1)
-            (.remove score-observ (- (.size score-observ) 1))
-            (.setItems score-table score-observ)))
+
+        #_(println (map (fn [s] (map #(.getNum s %) (range num-of-buttons))) score-observ))
+        (reset! before-frame -1)
+        (.remove score-observ (- (.size score-observ) 1))
+        (.setItems score-table score-observ)))
 
     (input-score-start []
       (let [timeCul (TableColumn. "TIME")
-           ; aCul    (TableColumn. "A")
-           ; bCul    (TableColumn. "B")
-           ; cCul    (TableColumn. "C")
-           ; dCul    (TableColumn. "D")
-            culs    (doall (map #(TableColumn. %) (map clostr/upper-case score-rows)))]
+            aCul (TableColumn. "A")
+            bCul (TableColumn. "B")
+            cCul (TableColumn. "C")
+            dCul (TableColumn. "D")
+            eCul (TableColumn. "E")
+            fCul (TableColumn. "F")
+            gCul (TableColumn. "G")]
 
         (doto score-table
           (-> .getSelectionModel (.setCellSelectionEnabled true))
@@ -558,54 +547,101 @@
                           row  (.getRow poti)
                           cul  (.getTableColumn poti)]
                       (when (and (not= cul timeCul) (<= 0 row))
-                        (when 
-                          (let [tar (.getCellObservableValue cul row)]
-                            (schange)
-                            (.set tar (if (or (= (.get tar) @note-mode) (and (= @note-mode 1) (= 3 (.get tar)))) 0 @note-mode))
-                            (when-not (nil? @editing-score)
-                              (let [notes       (doall (map
-                                                        #(let [tmp (.getCellObservableValue % row)]
-                                                            (println "row" row "tmp" tmp) tmp)
-                                                        culs))
-                                                #_(list (.getCellObservableValue aCul row) (.getCellObservableValue bCul row)(.getCellObservableValue cCul row)(.getCellObservableValue dCul row))
-                                    one-notes   (filter #(= 1 (.get %)) notes)
-                                    three-notes (filter #(= 3 (.get %)) notes)
-                                    now         (concat one-notes three-notes)
-                                    one-three   (atom 0)]
-                                (dorun (map #(do (swap! one-three inc) (println %)) now))
-                                (if (>= @one-three 2)
-                                  (dorun (map #(.set % 3) one-notes))
-                                  (when (>= @one-three 1)
-                                    (dorun (map #(.set % 1) three-notes)))))
-                            #_(.focus (.getFocusModel score-table) -1)
-                            #_(.clearSelection (.getSelectionModel score-table))))))))))))
+                        (let [tar (.getCellObservableValue cul row)]
+                          (schange)
+                          (.set tar (if (or (= (.get tar) @note-mode) (and (= @note-mode 1) (= 3 (.get tar)))) 0 @note-mode))
+                          (when-not (nil? @editing-score)
+                            #_(println (.getCellObservableValue (first culs) row))
+                            (let [notes     (list (.getCellObservableValue aCul row) (.getCellObservableValue bCul row) (.getCellObservableValue cCul row) (.getCellObservableValue dCul row) (.getCellObservableValue eCul row) (.getCellObservableValue fCul row) (.getCellObservableValue gCul row))
+                                  #_(doall (map
+                                                       #(let [tmp (.getCellObservableValue % row)]
+                                                         (println "row" row "tmp" tmp)
+                                                         tmp)
+                                                       culs))
+                                  _  (println notes)
+                                  one-notes   (filter #(= 1 (.get %)) notes)
+                                  three-notes (filter #(= 3 (.get %)) notes)
+                                  now         (concat one-notes three-notes)
+                                  one-three   (atom 0)]
+                              (dorun (map #(do (swap! one-three inc) (println %)) now))
+                              (if (>= @one-three 2)
+                                (dorun (map #(.set % 3) one-notes))
+                                (when (>= @one-three 1)
+                                  (dorun (map #(.set % 1) three-notes)))))
+                           #_(.focus (.getFocusModel score-table) -1)
+                           #_(.clearSelection (.getSelectionModel score-table)))))))))))
 
         (doto timeCul
           (.setCellValueFactory (PropertyValueFactory. "flame")))
 
-        (dorun
+        #_(dorun
           (map
            #(doto %1
-              (println "----" %2)
+              (println "----" (.toString %2))
               (.setSortable false)
               (.setCellFactory (proxy [Callback] []
                                  (call [param]
                                    (ColorCulmCell.))))
-              (.setCellValueFactory (PropertyValueFactory. %2)))
-           culs score-rows))
+              (.setCellValueFactory %2))
+           culs (map #(PropertyValueFactory. %) score-rows)))
 
-        #_(doto aCul
+        (doto aCul
+          (.setSortable false)
+          (.setCellFactory (proxy [Callback] []
+                              (call [param]
+                                (ColorCulmCell.))))
+          (.setCellValueFactory (PropertyValueFactory. "a")))
+
+        (doto bCul
+          (.setSortable false)
+          (.setCellFactory (proxy [Callback] []
+                              (call [param]
+                                (ColorCulmCell.))))
+          (.setCellValueFactory (PropertyValueFactory. "b")))
+
+        (doto cCul
+          (.setSortable false)
+          (.setCellFactory (proxy [Callback] []
+                              (call [param]
+                                (ColorCulmCell.))))
+          (.setCellValueFactory (PropertyValueFactory. "c")))
+
+        (doto dCul
           (.setSortable false)
           (.setCellFactory (proxy [Callback] []
                              (call [param]
                                (ColorCulmCell.))))
-          (.setCellValueFactory (PropertyValueFactory. "a")))
+          (.setCellValueFactory (PropertyValueFactory. "d")))
 
-        (doto score-table
-          (-> .getColumns (.addAll (vec (cons timeCul culs)))))
+        (doto eCul
+          (.setSortable false)
+          (.setCellFactory (proxy [Callback] []
+                              (call [param]
+                                (ColorCulmCell.))))
+          (.setCellValueFactory (PropertyValueFactory. "e")))
+
+        (doto fCul
+          (.setSortable false)
+          (.setCellFactory (proxy [Callback] []
+                              (call [param]
+                                (ColorCulmCell.))))
+          (.setCellValueFactory (PropertyValueFactory. "f")))
+
+        (doto gCul
+          (.setSortable false)
+          (.setCellFactory (proxy [Callback] []
+                              (call [param]
+                                (ColorCulmCell.))))
+          (.setCellValueFactory (PropertyValueFactory. "g")))
+
 
         #_(doto score-table
-          (-> .getColumns (.addAll [timeCul aCul bCul cCul dCul])))))
+          (-> .getColumns (.addAll (let [tmp (vec (cons timeCul culs))] (println (count tmp) tmp) tmp))))
+
+        #_(dorun (map #(println "----" (-> % .getCellValueFactory .getProperty)) (.getColumns score-table)))
+
+        (doto score-table
+          (-> .getColumns (.addAll [timeCul aCul bCul cCul dCul eCul fCul gCul])))))
 
     (preview-set []
       (doto preview-pane
